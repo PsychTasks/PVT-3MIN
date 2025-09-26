@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Web PVT - Summary Metrics</title>
+<style>
+  body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; flex-direction: column; }
+  #stim { font-size: 5em; }
+  #message { font-size: 1.5em; margin-top: 20px; text-align:center; white-space: pre-line; }
+</style>
+</head>
+<body>
+<div id="stim">0</div>
+<div id="message">Press any key when the timer starts.</div>
+
+<script>
+const stim = document.getElementById('stim');
+const message = document.getElementById('message');
+
+let startTime = null;
+let intervalID = null;
+let rts = [];
+let trialNum = 0;
+const maxTrials = 20; // number of trials
+const minISI = 2000;  // ms before timer starts
+const maxISI = 5000;  // ms before timer starts
+
+function randomISI() {
+  return minISI + Math.random() * (maxISI - minISI);
+}
+
+function showTimer() {
+  stim.textContent = '0';
+  startTime = performance.now();
+  intervalID = setInterval(() => {
+    const elapsed = performance.now() - startTime;
+    stim.textContent = Math.floor(elapsed);
+  }, 10); // update every 10 ms
+}
+
+function hideTimer() {
+  if (intervalID) {
+    clearInterval(intervalID);
+    intervalID = null;
+  }
+  stim.textContent = '0';
+  const delay = randomISI();
+  setTimeout(() => {
+    trialNum++;
+    if(trialNum > maxTrials) finishPVT();
+    else showTimer();
+  }, delay);
+}
+
+function finishPVT() {
+  stim.textContent = 'Done! Thank you!';
+
+  if (rts.length === 0) {
+    message.textContent = 'No responses recorded.';
+    return;
+  }
+
+  // Mean
+  const meanRT = (rts.reduce((a,b) => a+b, 0)/rts.length).toFixed(1);
+
+  // Median
+  const sortedRTs = [...rts].sort((a,b) => a-b);
+  const mid = Math.floor(sortedRTs.length / 2);
+  const medianRT = sortedRTs.length % 2 === 0 ?
+    ((sortedRTs[mid-1] + sortedRTs[mid])/2).toFixed(1) :
+    sortedRTs[mid].toFixed(1);
+
+  // Standard Deviation
+  const variance = rts.reduce((sum, val) => sum + Math.pow(val - meanRT, 2), 0) / rts.length;
+  const sdRT = Math.sqrt(variance).toFixed(1);
+
+  // Lapses
+  const lapses500 = rts.filter(rt => rt > 500).length;
+  const lapses355 = rts.filter(rt => rt > 355).length;
+
+  message.textContent = `PVT Summary:
+Mean RT: ${meanRT} ms
+Median RT: ${medianRT} ms
+SD: ${sdRT} ms
+Lapses >500 ms: ${lapses500}
+Lapses >355 ms: ${lapses355}`;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (startTime) {
+    const rt = performance.now() - startTime;
+    rts.push(rt);
+    startTime = null;
+    hideTimer();
+  }
+});
+
+// Start first trial
+hideTimer();
+</script>
+</body>
+</html>
