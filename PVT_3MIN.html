@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3-Minute Continuous PVT</title>
+<style>
+  body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; flex-direction: column; }
+  #stim { font-size: 5em; }
+  #message { font-size: 1.5em; margin-top: 20px; text-align:center; white-space: pre-line; }
+</style>
+</head>
+<body>
+<div id="stim">Wait...</div>
+<div id="message">Press any key when the timer starts.</div>
+
+<script>
+const stim = document.getElementById('stim');
+const message = document.getElementById('message');
+
+let startTime = null;
+let rts = [];
+let intervalID = null;
+
+const sessionDuration = 3 * 60 * 1000; // 3 minutes in ms
+const minISI = 2000;  // min interval before stimulus appears
+const maxISI = 5000;  // max interval before stimulus appears
+let sessionStart = performance.now();
+
+function randomISI() {
+  return minISI + Math.random() * (maxISI - minISI);
+}
+
+function showStim() {
+  stim.textContent = '●';
+  startTime = performance.now();
+  intervalID = setInterval(() => {
+    const elapsed = performance.now() - startTime;
+    stim.textContent = Math.floor(elapsed);
+  }, 10);
+}
+
+function hideStim() {
+  if (intervalID) {
+    clearInterval(intervalID);
+    intervalID = null;
+  }
+  stim.textContent = 'Wait...';
+  const delay = randomISI();
+  setTimeout(() => {
+    if (performance.now() - sessionStart >= sessionDuration) {
+      finishPVT();
+    } else {
+      showStim();
+    }
+  }, delay);
+}
+
+function finishPVT() {
+  stim.textContent = 'Done!';
+
+  if (rts.length === 0) {
+    message.textContent = 'No responses recorded.';
+    return;
+  }
+
+  // Mean
+  const meanRT = (rts.reduce((a,b) => a+b, 0)/rts.length).toFixed(1);
+
+  // Median
+  const sortedRTs = [...rts].sort((a,b) => a-b);
+  const mid = Math.floor(sortedRTs.length / 2);
+  const medianRT = sortedRTs.length % 2 === 0 ?
+    ((sortedRTs[mid-1] + sortedRTs[mid])/2).toFixed(1) :
+    sortedRTs[mid].toFixed(1);
+
+  // Standard Deviation
+  const variance = rts.reduce((sum, val) => sum + Math.pow(val - meanRT, 2), 0) / rts.length;
+  const sdRT = Math.sqrt(variance).toFixed(1);
+
+  // Lapses
+  const lapses500 = rts.filter(rt => rt > 500).length;
+  const lapses355 = rts.filter(rt => rt > 355).length;
+
+  message.textContent = `3-Minute PVT Summary:
+Mean RT: ${meanRT} ms
+Median RT: ${medianRT} ms
+SD: ${sdRT} ms
+Lapses >500 ms: ${lapses500}
+Lapses >355 ms: ${lapses355}`;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (startTime) {
+    const rt = performance.now() - startTime;
+    rts.push(rt);
+    startTime = null;
+    hideStim();
+  }
+});
+
+// Start first stimulus after initial ISI
+setTimeout(showStim, randomISI());
+</script>
+</body>
+</html>
